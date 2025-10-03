@@ -23,7 +23,7 @@ public class AuthController : ControllerBase
         _config = config;
     }
 
-    /// <summary>Registra un usuario nuevo (contraseña hasheada)</summary>
+    /// <summary>Registra un usuario nuevo (contraseña hasheada + UserTag)</summary>
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterDto dto)
     {
@@ -36,9 +36,12 @@ public class AuthController : ControllerBase
         {
             Email = dto.Email.Trim().ToLowerInvariant(),
             FullName = dto.FullName.Trim(),
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password), // 🔒
-            Rol = dto.Rol.Trim() // 👈 viene del combobox en Flutter ("Usuario" o "Contacto")
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+            Rol = dto.Rol.Trim()
         };
+
+        // 🔹 Generar UserTag único (ejemplo: Moises#4821)
+        user.UserTag = await GenerateUniqueUserTag(user.FullName);
 
         _db.Users.Add(user);
         await _db.SaveChangesAsync();
@@ -48,7 +51,8 @@ public class AuthController : ControllerBase
             userId = user.UserId,
             email = user.Email,
             fullName = user.FullName,
-            rol = user.Rol
+            rol = user.Rol,
+            userTag = user.UserTag
         });
     }
 
@@ -65,7 +69,6 @@ public class AuthController : ControllerBase
         if (user is null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
             return Unauthorized(new { message = "Credenciales inválidas" });
 
-        // 🔑 Crear JWT
         var token = GenerateJwtToken(user);
 
         return Ok(new
@@ -74,15 +77,32 @@ public class AuthController : ControllerBase
             email = user.Email,
             fullName = user.FullName,
             rol = user.Rol,
-            token // 👈 devuelve el JWT al cliente
+            userTag = user.UserTag,
+            token
         });
+    }
+
+    // 🔹 Generar un UserTag único con formato Nombre#1234
+    private async Task<string> GenerateUniqueUserTag(string fullName)
+    {
+        var baseName = fullName.Split(' ')[0]; // toma solo el primer nombre
+        string tag;
+        bool exists;
+
+        do
+        {
+            var random = new Random().Next(1000, 9999); // ej: 4821
+            tag = $"{baseName}#{random}";
+            exists = await _db.Users.AnyAsync(u => u.UserTag == tag);
+        } while (exists);
+
+        return tag;
     }
 
     private string GenerateJwtToken(AppUser user)
     {
         var jwtConfig = _config.GetSection("Jwt");
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtConfig["Key"]!));
-
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new[]
@@ -90,7 +110,8 @@ public class AuthController : ControllerBase
             new Claim(JwtRegisteredClaimNames.Sub, user.UserId.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
             new Claim("fullName", user.FullName),
-            new Claim("rol", user.Rol ?? "Usuario"), // 👈 guardamos el rol que tenga
+            new Claim("rol", user.Rol ?? "Usuario"),
+            new Claim("userTag", user.UserTag ?? "")
         };
 
         var token = new JwtSecurityToken(

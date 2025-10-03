@@ -16,4 +16,7 @@ public class AppUser
     public bool IsActive { get; set; } = true;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // 👇 Nuevo campo para tag único
+    public string UserTag { get; set; } = string.Empty;
 }

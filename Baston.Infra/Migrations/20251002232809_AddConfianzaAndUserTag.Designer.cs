@@ -13,8 +13,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Baston.Infra.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250916031442_AddRolToUser")]
-    partial class AddRolToUser
+    [Migration("20251002232809_AddConfianzaAndUserTag")]
+    partial class AddConfianzaAndUserTag
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -106,12 +106,55 @@ namespace Baston.Infra.Migrations
                         .HasColumnType("text")
                         .HasColumnName("rol");
 
+                    b.Property<string>("UserTag")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("tag");
+
                     b.HasKey("UserId");
 
                     b.HasIndex("Email")
                         .IsUnique();
 
+                    b.HasIndex("UserTag")
+                        .IsUnique();
+
                     b.ToTable("usuario", (string)null);
+                });
+
+            modelBuilder.Entity("Baston.Domain.Entities.ConfianzaRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("request_id")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid>("ReceiverId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("receptor_id");
+
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("remitente_id");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("enviado_utc");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("estado");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReceiverId");
+
+                    b.HasIndex("SenderId");
+
+                    b.ToTable("confianza_request", (string)null);
                 });
 
             modelBuilder.Entity("Baston.Domain.Entities.Device", b =>
@@ -228,6 +271,25 @@ namespace Baston.Infra.Migrations
                     b.HasKey("UserId", "K");
 
                     b.ToTable("kv_meta_servidor", (string)null);
+                });
+
+            modelBuilder.Entity("Baston.Domain.Entities.ConfianzaRequest", b =>
+                {
+                    b.HasOne("Baston.Domain.Entities.AppUser", "Receiver")
+                        .WithMany()
+                        .HasForeignKey("ReceiverId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Baston.Domain.Entities.AppUser", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Receiver");
+
+                    b.Navigation("Sender");
                 });
 #pragma warning restore 612, 618
         }

@@ -11,6 +11,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<AlertEvent> AlertEvents => Set<AlertEvent>();
     public DbSet<KvMetaServer> KvMetaServers => Set<KvMetaServer>();
 
+    // 👇 Nueva tabla
+    public DbSet<ConfianzaRequest> ConfianzaRequests => Set<ConfianzaRequest>();
+
     protected override void OnModelCreating(ModelBuilder b)
     {
         b.HasPostgresExtension("pgcrypto");
@@ -27,12 +30,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.HasIndex(x => x.Email).IsUnique();
             e.Property(x => x.PasswordHash).HasColumnName("contrasena_hash");
             e.Property(x => x.FullName).HasColumnName("nombre_completo");
-           
 
-            // 👇 CAMBIO: antes era jsonb, ahora solo texto
             e.Property(x => x.Rol)
                 .HasColumnName("rol")
                 .HasColumnType("text");
+
+            // 👇 Nuevo campo Tag
+            e.Property(x => x.UserTag)
+                .HasColumnName("tag")
+                .HasColumnType("text");
+
+            e.HasIndex(x => x.UserTag).IsUnique();
 
             e.Property(x => x.IsActive).HasColumnName("activo");
             e.Property(x => x.CreatedAt).HasColumnName("creado_utc");
@@ -107,6 +115,34 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.K).HasColumnName("k");
             e.Property(x => x.V).HasColumnName("v");
             e.Property(x => x.UpdatedAt).HasColumnName("actualizado_utc");
+        });
+
+        // confianza_request
+        b.Entity<ConfianzaRequest>(e =>
+        {
+            e.ToTable("confianza_request");
+            e.HasKey(x => x.Id);
+
+            e.Property(x => x.Id)
+                .HasColumnName("request_id")
+                .HasDefaultValueSql("gen_random_uuid()");
+
+            e.Property(x => x.SenderId).HasColumnName("remitente_id");
+            e.Property(x => x.ReceiverId).HasColumnName("receptor_id");
+            e.Property(x => x.SentAt).HasColumnName("enviado_utc");
+            e.Property(x => x.Status)
+                .HasColumnName("estado")
+                .HasMaxLength(20);
+
+            e.HasOne(x => x.Sender)
+                .WithMany()
+                .HasForeignKey(x => x.SenderId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.Receiver)
+                .WithMany()
+                .HasForeignKey(x => x.ReceiverId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

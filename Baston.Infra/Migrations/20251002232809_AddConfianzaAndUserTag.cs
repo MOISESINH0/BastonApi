@@ -8,7 +8,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Baston.Infra.Migrations
 {
     /// <inheritdoc />
-    public partial class AddRolToUser : Migration
+    public partial class AddConfianzaAndUserTag : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -94,12 +94,50 @@ namespace Baston.Infra.Migrations
                     contrasena_hash = table.Column<string>(type: "text", nullable: false),
                     rol = table.Column<string>(type: "text", nullable: false),
                     activo = table.Column<bool>(type: "boolean", nullable: false),
-                    creado_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    creado_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    tag = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_usuario", x => x.usuario_id);
                 });
+
+            migrationBuilder.CreateTable(
+                name: "confianza_request",
+                columns: table => new
+                {
+                    request_id = table.Column<Guid>(type: "uuid", nullable: false, defaultValueSql: "gen_random_uuid()"),
+                    remitente_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    receptor_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    enviado_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    estado = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_confianza_request", x => x.request_id);
+                    table.ForeignKey(
+                        name: "FK_confianza_request_usuario_receptor_id",
+                        column: x => x.receptor_id,
+                        principalTable: "usuario",
+                        principalColumn: "usuario_id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_confianza_request_usuario_remitente_id",
+                        column: x => x.remitente_id,
+                        principalTable: "usuario",
+                        principalColumn: "usuario_id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_confianza_request_receptor_id",
+                table: "confianza_request",
+                column: "receptor_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_confianza_request_remitente_id",
+                table: "confianza_request",
+                column: "remitente_id");
 
             migrationBuilder.CreateIndex(
                 name: "u_dispositivo_usuario_bt",
@@ -134,11 +172,20 @@ namespace Baston.Infra.Migrations
                 table: "usuario",
                 column: "email",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_usuario_tag",
+                table: "usuario",
+                column: "tag",
+                unique: true);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "confianza_request");
+
             migrationBuilder.DropTable(
                 name: "dispositivo");
 
